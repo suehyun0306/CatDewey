@@ -51,12 +51,12 @@ FIXED_SCHEMA_INFO = """
 
 3) fac (시설 현황)
   - 도서관코드 (INTEGER, PK, FK → base_info.도서관코드)
-  - 면적_도서관 부지 면적 (FLOAT)
-  - 면적_도서관 건물 연면적 (FLOAT)
-  - 면적_도서관 서비스 제공 면적 (FLOAT)
-  - 좌석수_총 좌석수 (INTEGER)
-  - 좌석수_어린이 열람석 (INTEGER)
-  - 좌석수_노인 및 장애인 열람석 (INTEGER)
+  - 도서관 부지 면적 (FLOAT)
+  - 도서관 건물 연면적 (FLOAT)
+  - 도서관 서비스 제공 면적 (FLOAT)
+  - 총 좌석수 (INTEGER)
+  - 어린이 열람석 (INTEGER)
+  - 노인 및 장애인 열람석 (INTEGER)
 
 4) user (이용자 현황)
   - 도서관코드 (INTEGER, PK, FK → base_info.도서관코드)
@@ -114,38 +114,51 @@ def initialize_database():
         'base_info': 'T1_도서관기본정보.csv',
         'holding': 'T2_장서정보.csv',
         'fac': 'T3_시설현황.csv',
-        'user': 'T4_이용자정보_지역포함.csv',
+        'user': 'T4_이용자정보.csv',
         'service': 'T5_지식정보취약계층서비스.csv',
-        'pop': 'T6_지역인구_시군구포함.csv'
+        'pop': 'T6_지역인구.csv'
     }
     
-    # 파일 존재 여부 확인 (디버깅 편의를 위해 없는 파일은 건너뛰고 진행)
-    existing_files = {k: v for k, v in csv_files.items() if os.path.exists(v)}
+    # --------------------------------------------------------------------------------
+# 수정된 initialize_database 함수 내부 로직
+# --------------------------------------------------------------------------------
+
+    # 1. [수정] 누락된 파일이 있는지 먼저 검사합니다.
+    missing_files = [path for path in csv_files.values() if not os.path.exists(path)]
     
-    if not existing_files:
-        # DB가 이미 있다면 굳이 에러를 띄우지 않고 기존 DB 사용
-        if os.path.exists(DB_PATH):
-            return True
-        st.error(f"❌ CSV 파일이 작업 폴더에 없습니다. 다음 파일들을 확인해주세요: {list(csv_files.values())}")
+    # 2. [수정] 하나라도 없으면 에러를 띄우고 즉시 중단합니다. (거짓말쟁이 방지)
+    if missing_files:
+        st.error(f"❌ 필수 파일이 누락되어 DB를 생성할 수 없습니다.\n누락된 파일: {missing_files}")
+        # 파일이 없으면 기존 DB라도 쓰게 할지, 아예 멈출지 결정해야 하는데
+        # '업로드가 잘못된 것을 알아야 한다'는 선생님 의견에 따라 여기서 멈춥니다.
         return False
 
+    # 3. 모든 파일이 존재할 때만 아래 로직이 실행됩니다.
     try:
         conn = sqlite3.connect(DB_PATH)
         progress_bar = st.progress(0)
         
-        total = len(existing_files)
-        for i, (table, path) in enumerate(existing_files.items()):
+        # 이제 existing_files 대신 원래 csv_files를 그대로 씁니다. (다 있는 걸 확인했으니까요)
+        total = len(csv_files)
+        
+        for i, (table, path) in enumerate(csv_files.items()):
             df = read_csv_robust(path)
+            
+            # 데이터프레임이 비어있는 경우도 체크하면 더 좋습니다 (선택사항)
+            if df.empty:
+                st.warning(f"⚠️ {path} 파일은 존재하지만 데이터가 비어있습니다.")
+                
             df.to_sql(table, conn, if_exists='replace', index=False)
             progress_bar.progress((i + 1) / total)
 
         conn.commit()
         conn.close()
         progress_bar.empty()
-        st.toast("데이터베이스가 성공적으로 업데이트되었습니다!", icon="✅")
+        st.toast("모든 데이터가 완벽하게 적재되었습니다!", icon="✅")
         return True
+        
     except Exception as e:
-        st.error(f"DB 생성 오류: {e}")
+        st.error(f"DB 생성 중 기술적 오류 발생: {e}")
         return False
 
 # --------------------------------------------------------------------------------
@@ -277,7 +290,124 @@ with st.sidebar:
     if st.button("🔄 DB 데이터 초기화/갱신"):
         initialize_database()
 
-st.title("📚 도서관 데이터 분석 AI")
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 고정형)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 강력 고정형 fixed)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 사이드바 안 가리는 버전)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 반응형 Sticky 버전)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 사이드바 반응형 + 상단 여백 제거)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 기본 헤더 숨김 + 완벽한 Sticky)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 기본바 제거 + Sticky 고정)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 디자인만 적용된 기본 버전)
+# --------------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (상단 헤더 - 디자인만 적용된 기본 버전)
+# --------------------------------------------------------------------------------
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gowun+Dodum&display=swap');
+
+/* ✅ 헤더를 메인 컨텐츠 영역에만 고정 */
+.header-container {
+    position: fixed;
+    top: 3.5rem;               /* Streamlit 상단바 아래 */
+    left: 18rem;               /* ✅ 사이드바 너비만큼 밀기 */
+    right: 1rem;
+    z-index: 9999;
+    background: transparent;
+}
+
+/* ✅ 채팅 영역이 헤더에 안 가리게 밀기 */
+.block-container {
+    padding-top: 270px !important;
+}
+
+         
+/* ✅ 디자인은 그대로 유지 */
+.gradient-box {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: linear-gradient(45deg, #337de6 0%, #149c9f 100%); 
+    color: white; 
+    padding: 30px 40px; 
+    border-radius: 15px; 
+    font-family: 'Do Hyeon', sans-serif;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+}
+
+.main-title {
+    margin: 0; 
+    font-size: 32px; 
+    color: white;
+    font-family: 'Do Hyeon', sans-serif;
+}
+
+.sub-title {
+    font-family: 'Gowun Dodum', sans-serif; 
+    margin: 5px 0 0 0; 
+    font-size: 16px; 
+    opacity: 0.9; 
+    font-weight: normal;
+}
+
+.univ-info {
+    text-align: right; 
+    font-family: 'Gowun Dodum', sans-serif; 
+    font-size: 15px; 
+    opacity: 0.8; 
+    font-weight: normal; 
+    line-height: 1.5;
+}
+
+/* 모바일 대응 */
+@media (max-width: 900px) {
+    .header-container {
+        left: 1rem;   /* ✅ 모바일에서는 사이드바 폭 제거 */
+        right: 1rem;
+    }
+}
+</style>
+
+<div class="header-container">
+    <div class="gradient-box">
+        <div>
+            <h1 class="main-title">📮 <span style="font-style: italic;">사서함 : 사서와 함께</span></h1>
+            <p class="sub-title">지적자유 전문상담 챗봇</p>
+        </div>
+        <div class="univ-info">
+            <p style="margin: 0;">중앙대학교</p>
+            <p style="margin: 0;">문헌정보학과</p>
+        </div>
+    </div>
+</div>
+            
+""", unsafe_allow_html=True)
+
+
 
 # API 키 확인
 if not api_key:
@@ -299,48 +429,88 @@ if "last_result" not in st.session_state:
     st.session_state.last_result = None
 
 # 이전 대화 출력
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (중간 부분 수정)
+# --------------------------------------------------------------------------------
+
+# 이전 대화 및 분석 결과 출력
+# --------------------------------------------------------------------------------
+# 5. Streamlit 화면 구성 (중간 부분 - 대화 기록 출력)
+# --------------------------------------------------------------------------------
+
 for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
-
-# 마지막 분석 결과가 있다면 다시 보여주기 (Rerun 대응)
-if st.session_state.last_result:
-    res = st.session_state.last_result
-    with st.expander("📊 분석 결과 보기", expanded=True):
-        st.code(res['query'], language="sql")
-        st.info(res['explanation'])
+    # 1. 역할에 따라 아이콘(아바타) 결정
+    if msg["role"] == "user":
+        icon = "🙋‍♂️"  # 사용자: 손 든 사람
+    else:
+        icon = "🦉"  # AI: 부엉이 사서
         
-        tab1, tab2, tab3 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트"])
-        with tab1:
-            st.dataframe(res['df'])
-        with tab2:
-            if res['viz_code']:
-                # exec 안전 실행
-                try:
-                    # plt.show를 무력화하여 에러 방지
-                    exec_globals = {'pd': pd, 'plt': plt, 'sns': sns, 'st': st}
-                    exec_locals = {'df': res['df']}
-                    # plt.show가 호출되어도 아무일도 안 일어나게 dummy 함수 할당
-                    exec("plt.show = lambda: None", exec_globals) 
-                    exec(res['viz_code'], exec_globals, exec_locals)
-                    st.pyplot(plt.gcf())
-                    plt.clf() # 렌더링 후 초기화
-                except Exception as e:
-                    st.error(f"시각화 코드 실행 오류: {e}")
-                    st.code(res['viz_code'])
-        with tab3:
-            st.write(res['report'])
+    # 2. 결정된 아이콘을 넣어 메시지 표시 (기존 코드 대신 이 부분을 씁니다)
+    with st.chat_message(msg["role"], avatar=icon):
+        st.write(msg["content"])
+        
+        # 만약 이 메시지에 분석 결과(데이터, 그래프 등)가 저장되어 있다면 그려줍니다.
+        if "result" in msg:
+            res = msg["result"]
+            
+            # 탭 생성
+            tab1, tab2, tab3 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트"])
+            
+            with tab1:
+                st.dataframe(res['df'])
+                
+            with tab2:
+                # 저장된 코드로 그래프 그리기
+                if res['viz_code']:
+                    try:
+                        # 1. 그림 그릴 도화지(Figure)를 새로 꺼냅니다.
+                        fig = plt.figure(figsize=(10, 6))
+                        
+                        # 2. 실행 환경 설정
+                        exec_globals = {'pd': pd, 'plt': plt, 'sns': sns, 'st': st}
+                        exec_locals = {'df': res['df']}
+                        
+                        # 3. plt.show() 무력화 (에러 방지용)
+                        exec("plt.show = lambda: None", exec_globals)
+                        
+                        # 4. 시각화 코드 실행
+                        exec(res['viz_code'], exec_globals, exec_locals)
+                        
+                        # 5. 그려진 그림을 화면에 출력
+                        st.pyplot(plt.gcf())
+                        
+                        # 6. 메모리 정리를 위해 도화지 닫기
+                        plt.close(fig)
+                        
+                    except Exception as e:
+                        st.error(f"시각화 복원 오류: {e}")
+                        # 혹시 모르니 코드도 보여줌
+                        with st.expander("오류 코드 보기"):
+                            st.code(res['viz_code'])
+                            
+            with tab3:
+                st.info(res['report'])
+                with st.expander("🔍 사용된 SQL 쿼리 확인"):
+                    st.code(res['query'], language="sql")
+# --------------------------------------------------------------------------------
+# 6. 사용자 입력 처리 (마지막 부분 수정)
+# --------------------------------------------------------------------------------
 
-# 사용자 입력 처리
+# --------------------------------------------------------------------------------
+# 6. 사용자 입력 처리 (마지막 부분 - 실시간 대화)
+# --------------------------------------------------------------------------------
+
 if prompt := st.chat_input("질문을 입력하세요..."):
-    # 1. 사용자 메시지 화면 표시 및 저장
-    st.chat_message("user").write(prompt)
+    # 1. 사용자 메시지 화면 표시 (🙋‍♂️ 아이콘 추가)
+    with st.chat_message("user", avatar="🙋‍♂️"):
+        st.write(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # 2. AI 답변 처리
-    with st.chat_message("assistant"):
+    # 2. AI 답변 처리 (🦉 아이콘 추가)
+    with st.chat_message("assistant", avatar="🦉"):
         message_placeholder = st.empty()
         
-        with st.spinner("데이터 분석 중입니다..."):
+        with st.spinner("부엉이 사서가 자료를 찾고 있습니다... 🦉"): # 멘트도 귀엽게 변경!
             # 1) SQL 생성
             res_sql = nl_to_sql(client, prompt)
             query = res_sql['sql']
@@ -349,6 +519,10 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             if "SELECT" not in query.upper():
                 st.error("올바른 SQL 쿼리를 생성하지 못했습니다.")
                 st.code(query)
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": "SQL 생성 실패: " + query
+                })
             else:
                 try:
                     # 2) SQL 실행
@@ -361,23 +535,51 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         viz_code = generate_viz_code(client, df_result, prompt)
                         report = generate_report(client, df_result, prompt)
                         
-                        # 4) 결과 저장 (UI 유지를 위해 세션에 저장)
-                        st.session_state.last_result = {
+                        # 4) 결과 데이터 포장
+                        result_data = {
                             'query': query,
-                            'explanation': explanation,
                             'df': df_result,
                             'viz_code': viz_code,
                             'report': report
                         }
                         
-                        # 강제 리런하여 저장된 결과를 화면에 표시 (가장 깔끔한 방법)
-                        st.rerun()
+                        # 5) 화면에 즉시 보여주기
+                        st.write(explanation)
+                        tab1, tab2, tab3 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트"])
+                        
+                        with tab1:
+                            st.dataframe(df_result)
+                        with tab2:
+                            try:
+                                fig = plt.figure(figsize=(10, 6))
+                                exec_globals = {'pd': pd, 'plt': plt, 'sns': sns, 'st': st}
+                                exec_locals = {'df': df_result}
+                                exec("plt.show = lambda: None", exec_globals)
+                                exec(viz_code, exec_globals, exec_locals)
+                                st.pyplot(plt.gcf())
+                                plt.close(fig)
+                            except:
+                                st.error("시각화 실패")
+                        with tab3:
+                            st.info(report)
+                        
+                        # 6) 대화 기록에 저장
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": explanation,
+                            "result": result_data 
+                        })
                         
                     else:
                         st.warning("조건에 맞는 데이터가 없습니다.")
-                        st.session_state.messages.append({"role": "assistant", "content": "데이터 조회 결과가 없습니다."})
-                        st.session_state.last_result = None
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": "데이터 조회 결과가 없습니다."
+                        })
                         
                 except Exception as e:
                     st.error(f"실행 중 오류 발생: {e}")
-                    st.session_state.last_result = None
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": f"오류 발생: {e}"
+                    })
