@@ -51,12 +51,12 @@ FIXED_SCHEMA_INFO = """
 
 3) fac (시설 현황)
   - 도서관코드 (INTEGER, PK, FK → base_info.도서관코드)
-  - 도서관 부지 면적 (FLOAT)
-  - 도서관 건물 연면적 (FLOAT)
-  - 도서관 서비스 제공 면적 (FLOAT)
-  - 총 좌석수 (INTEGER)
-  - 어린이 열람석 (INTEGER)
-  - 노인 및 장애인 열람석 (INTEGER)
+  - 도서관_부지면적 (FLOAT)
+  - 도서관_건물_연면적 (FLOAT)
+  - 도서관_서비스_제공면적 (FLOAT)
+  - 총좌석수 (INTEGER)
+  - 어린이_열람석 (INTEGER)
+  - 노인및장애인_열람석 (INTEGER)
 
 4) user (이용자 현황)
   - 도서관코드 (INTEGER, PK, FK → base_info.도서관코드)
@@ -172,18 +172,42 @@ def nl_to_sql(client, question):
     {FIXED_SCHEMA_INFO}
 
     [규칙]
-    1. 여러 문장을 세미콜론으로 이어서 쓰지 마세요. 그러나 제일 마지막에는 세미콜론을 하나 붙이세요.
-    2. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
-    3. 존재하지 않는 테이블이나 컬럼 이름을 지어내지 말고, 위에 정의된 스키마만 사용하세요.
-    4. GROUP BY, ORDER BY, LIMIT, JOIN 등을 자유롭게 활용할 수 있습니다.
-    5. 결과를 JSON 형식의 문자열로만 출력하세요.
-    6. 시군구의 결과를 물어볼 때는 시도와 시군구를 기준으로 GROUP BY 하세요.
-    7. 시도의 결과를 물어볼 때는 시도를 기준으로 GROUP BY 하세요.
-    8. SUM 등 계산 함수를 적절하게 사용하세요.
+    1. 결과 형식: 반드시 JSON 포맷 {{"sql": "SELECT ...", "explanation": "..."}} 만 출력하세요.
+    2. 읽기 전용: SELECT 문만 사용 가능합니다. (INSERT, UPDATE, DELETE 금지)
+    3. 테이블 조인(JOIN) 필수: 
+       - `pop` 테이블과 다른 테이블들을 조인할 때는 반드시 복합키를 사용하세요.
+       - 구문 예시: `ON pop.시도 = base_info.시도 AND pop.시군구 = base_info.시군구`
+       - `base_info`, `service`, `holding`, `fac`, `user` 테이블끼리 join할 때는 `도서관코드`를 사용하세요.
+    4. 비율 계산: 
+       - 'A 대비 B' 또는 '비율'을 구할 때는 정수 나눗셈 오류를 방지하기 위해 `CAST`를 사용하세요.
+       - 예: `CAST(SUM(B) AS FLOAT) / SUM(A)`
+    5. 그룹화(GROUP BY):
+       - 지역별 통계를 구할 때는 `base_info.시도`, `base_info.시군구`로 그룹화하세요.
+       - 집계 함수(SUM, AVG)를 적절히 사용하여 도서관별 데이터를 지역별로 합치세요.
+    6. 제일 마지막에는 세미콜론(;)을 붙이세요.
+    7. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
+    8. 존재하지 않는 테이블이나 컬럼 이름을 지어내지 말고, 위에 정의된 스키마만 사용하세요. 스키마에 정의된 테이블명과 컬럼명을 글자 하나도 빼지 말고 그대로 사용하세요.
     9. SELECT나 WHERE 절에 사용된 컬럼이 있는 테이블은 반드시 FROM이나 JOIN 절에 포함되어야 합니다.
-    10.  포괄적 쿼리 제공: 데이터의 집계(SUM, AVG), 비교(JOIN), 필터링(WHERE), 순위 지정(ORDER BY) 등을 자유롭게 활용하여 유의미한 분석 결과를 도출합니다.
-    11.  데이터 무결성 유지: 쿼리 작성 시, 테이블 간의 **PK-FK 관계**를 정확히 이해하고 JOIN을 활용하여 데이터의 정합성을 유지합니다.
-    12.  스키마 활용: 쿼리 작성 시, 아래에 제시된 테이블 및 칼럼을 정확히 활용해야 합니다.
+    
+    [답변 예시]
+    
+    Q: "서울에 있는 도서관 이름 알려줘"
+    A: {{
+        "sql": "SELECT 도서관명 FROM base_info WHERE 시도 = '서울특별시';",
+        "explanation": "서울특별시에 위치한 모든 도서관의 이름을 조회합니다."
+    }}
+
+    Q: "어린이 인구수 대비 어린이 서비스 이용수가 적은 지역(시군구) 3곳을 알려줘"
+    A: {{
+        "sql": "SELECT b.시도, b.시군구, (CAST(SUM(s.어린이서비스_이용수) AS FLOAT) / MAX(p.어린이인구)) AS 이용률 FROM base_info b JOIN pop p ON b.시도 = p.시도 AND b.시군구 = p.시군구 JOIN service s ON b.도서관코드 = s.도서관코드 GROUP BY b.시도, b.시군구 ORDER BY 이용률 ASC LIMIT 3;",
+        "explanation": "지역별로 어린이 서비스 이용수 합계를 구한 뒤, 해당 지역의 어린이 인구수로 나누어 이용률이 가장 낮은 3곳을 추출합니다."
+    }}
+    
+    Q: "장애인 관련 예산이 가장 많은 상위 5개 도서관과 그 지역을 알려줘"
+    A: {{
+        "sql": "SELECT b.시도, b.도서관명, s.취약계층관련예산_장애인 FROM base_info b JOIN service s ON b.도서관코드 = s.도서관코드 ORDER BY s.취약계층관련예산_장애인 DESC LIMIT 5;",
+        "explanation": "서비스 테이블과 기본정보를 조인하여 장애인 예산이 가장 많은 순서대로 5개를 보여줍니다."
+    }}
     """
     
     try:
@@ -351,7 +375,7 @@ st.markdown("""
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    background: linear-gradient(45deg, #337de6 0%, #149c9f 100%); 
+    background: linear-gradient(45deg, #f0e8b5 0%, #62c0f9 100%); 
     color: white; 
     padding: 30px 40px; 
     border-radius: 15px; 
@@ -361,9 +385,10 @@ st.markdown("""
 
 .main-title {
     margin: 0; 
-    font-size: 32px; 
+    font-size: 60px; 
     color: white;
     font-family: 'Do Hyeon', sans-serif;
+    -webkit-text-stroke: 1px black;
 }
 
 .sub-title {
@@ -372,6 +397,7 @@ st.markdown("""
     font-size: 16px; 
     opacity: 0.9; 
     font-weight: normal;
+    color: black;
 }
 
 .univ-info {
@@ -395,8 +421,8 @@ st.markdown("""
 <div class="header-container">
     <div class="gradient-box">
         <div>
-            <h1 class="main-title">📮 <span style="font-style: italic;">사서함 : 사서와 함께</span></h1>
-            <p class="sub-title">지적자유 전문상담 챗봇</p>
+            <h1 class="main-title">💡 <span style="font-style: italic;">Light</span></h1>
+            <p class="sub-title">도서관의 내일을 비추는 데이터 인사이트</p>
         </div>
         <div class="univ-info">
             <p style="margin: 0;">중앙대학교</p>
@@ -441,88 +467,73 @@ if "last_result" not in st.session_state:
 for msg in st.session_state.messages:
     # 1. 역할에 따라 아이콘(아바타) 결정
     if msg["role"] == "user":
-        icon = "🙋‍♂️"  # 사용자: 손 든 사람
+        icon = "🙋‍♂️"  # 사용자
     else:
-        icon = "🦉"  # AI: 부엉이 사서
+        icon = "💡"  # AI
         
-    # 2. 결정된 아이콘을 넣어 메시지 표시 (기존 코드 대신 이 부분을 씁니다)
+    # 2. 메시지 표시
     with st.chat_message(msg["role"], avatar=icon):
         st.write(msg["content"])
         
-        # 만약 이 메시지에 분석 결과(데이터, 그래프 등)가 저장되어 있다면 그려줍니다.
+        # 저장된 분석 결과(데이터, 그래프, 쿼리 등)가 있다면 탭으로 표시
         if "result" in msg:
             res = msg["result"]
             
-            # 탭 생성
-            tab1, tab2, tab3 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트"])
+            # [수정] 탭을 4개로 늘림 ("🔍 SQL" 추가)
+            tab1, tab2, tab3, tab4 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트", "🔍 SQL"])
             
             with tab1:
                 st.dataframe(res['df'])
                 
             with tab2:
-                # 저장된 코드로 그래프 그리기
+                # 저장된 코드로 그래프 그리기 (exec 안전 실행)
                 if res['viz_code']:
                     try:
-                        # 1. 그림 그릴 도화지(Figure)를 새로 꺼냅니다.
                         fig = plt.figure(figsize=(10, 6))
-                        
-                        # 2. 실행 환경 설정
                         exec_globals = {'pd': pd, 'plt': plt, 'sns': sns, 'st': st}
                         exec_locals = {'df': res['df']}
-                        
-                        # 3. plt.show() 무력화 (에러 방지용)
                         exec("plt.show = lambda: None", exec_globals)
-                        
-                        # 4. 시각화 코드 실행
                         exec(res['viz_code'], exec_globals, exec_locals)
-                        
-                        # 5. 그려진 그림을 화면에 출력
                         st.pyplot(plt.gcf())
-                        
-                        # 6. 메모리 정리를 위해 도화지 닫기
                         plt.close(fig)
-                        
                     except Exception as e:
                         st.error(f"시각화 복원 오류: {e}")
-                        # 혹시 모르니 코드도 보여줌
                         with st.expander("오류 코드 보기"):
                             st.code(res['viz_code'])
                             
             with tab3:
-                st.info(res['report'])
-                with st.expander("🔍 사용된 SQL 쿼리 확인"):
-                    st.code(res['query'], language="sql")
-# --------------------------------------------------------------------------------
-# 6. 사용자 입력 처리 (마지막 부분 수정)
-# --------------------------------------------------------------------------------
+                st.markdown(res['report'])
+
+            # [추가] 4번째 탭에 SQL 쿼리 표시
+            with tab4:
+                st.info("이 결과를 만들기 위해 AI가 생성한 SQL입니다.")
+                st.code(res['query'], language="sql")
+
 
 # --------------------------------------------------------------------------------
-# 6. 사용자 입력 처리 (마지막 부분 - 실시간 대화)
+# 6. 사용자 입력 처리 (수정됨: 4번째 탭 추가)
 # --------------------------------------------------------------------------------
 
 if prompt := st.chat_input("질문을 입력하세요..."):
-    # 1. 사용자 메시지 화면 표시 (🙋‍♂️ 아이콘 추가)
+    # 1. 사용자 메시지 화면 표시
     with st.chat_message("user", avatar="🙋‍♂️"):
         st.write(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # 2. AI 답변 처리 (🦉 아이콘 추가)
-    with st.chat_message("assistant", avatar="🦉"):
+    # 2. AI 답변 처리
+    with st.chat_message("assistant", avatar="💡"):
         message_placeholder = st.empty()
         
-        with st.spinner("부엉이 사서가 자료를 찾고 있습니다... 🦉"): # 멘트도 귀엽게 변경!
+        with st.spinner("Light가 자료를 찾고 있습니다... 💡"):
             # 1) SQL 생성
             res_sql = nl_to_sql(client, prompt)
             query = res_sql['sql']
             explanation = res_sql['explanation']
             
             if "SELECT" not in query.upper():
-                st.error("올바른 SQL 쿼리를 생성하지 못했습니다.")
+                st.error("🚨 올바른 SQL 쿼리를 생성하지 못했습니다.")
+                st.error(f"**에러 원인:** {explanation}") 
                 st.code(query)
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": "SQL 생성 실패: " + query
-                })
             else:
                 try:
                     # 2) SQL 실행
@@ -538,6 +549,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 4) 결과 데이터 포장
                         result_data = {
                             'query': query,
+                            'explanation': explanation,
                             'df': df_result,
                             'viz_code': viz_code,
                             'report': report
@@ -545,10 +557,13 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         
                         # 5) 화면에 즉시 보여주기
                         st.write(explanation)
-                        tab1, tab2, tab3 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트"])
+                        
+                        # [수정] 탭을 4개로 늘림 ("🔍 SQL" 추가)
+                        tab1, tab2, tab3, tab4 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트", "🔍 SQL"])
                         
                         with tab1:
                             st.dataframe(df_result)
+                            
                         with tab2:
                             try:
                                 fig = plt.figure(figsize=(10, 6))
@@ -560,14 +575,20 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                                 plt.close(fig)
                             except:
                                 st.error("시각화 실패")
+                                
                         with tab3:
-                            st.info(report)
+                            st.markdown(report)
+                            
+                        # [추가] 4번째 탭에 SQL 쿼리 표시
+                        with tab4:
+                            st.info("이 결과를 만들기 위해 AI가 생성한 SQL입니다.")
+                            st.code(query, language="sql")
                         
                         # 6) 대화 기록에 저장
                         st.session_state.messages.append({
                             "role": "assistant", 
-                            "content": explanation,
-                            "result": result_data 
+                            "content": explanation, # 채팅창에는 설명만 텍스트로 저장
+                            "result": result_data   # 복잡한 결과는 객체로 저장
                         })
                         
                     else:
