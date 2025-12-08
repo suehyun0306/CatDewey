@@ -5,6 +5,7 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 from openai import OpenAI
+import matplotlib.font_manager as fm
 import os
 import platform
 import re 
