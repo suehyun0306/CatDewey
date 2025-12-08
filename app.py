@@ -181,7 +181,7 @@ def nl_to_sql(client, question):
        - 'A 대비 B' 또는 '비율'을 구할 때는 정수 나눗셈 오류를 방지하기 위해 `CAST`를 사용하세요.
        - 예: `CAST(SUM(B) AS FLOAT) / SUM(A)`
        - 비율 계산을 할 때 분모와 분자의 관계를 확실하게 이해하고 정확한 쿼리를 작성하세요. 
-       - 예: 'A 대비 B의 비율'은 CAST(SUM(B) AS FLOAT) / SUM(A) -> A가 분모로 가야 함. 
+       - 예: 'B 대비 A의 비율'은 CAST(SUM(A) AS FLOAT) / SUM(B) 
     5. 그룹화(GROUP BY):
        - 지역별 통계를 구할 때는 `base_info.시도`, `base_info.시군구`로 그룹화하세요.
        - 집계 함수(SUM, AVG)를 적절히 사용하여 도서관별 데이터를 지역별로 합치세요.
