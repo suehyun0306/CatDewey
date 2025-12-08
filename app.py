@@ -7,7 +7,7 @@ import seaborn as sns
 from openai import OpenAI
 import os
 import platform
-import re # 정규표현식 추가
+import re 
 
 # --------------------------------------------------------------------------------
 # 1. 기본 설정 및 한글 폰트
@@ -16,17 +16,22 @@ st.set_page_config(page_title="도서관 데이터 분석 챗봇", layout="wide"
 
 def set_korean_font():
     system_name = platform.system()
+    
     if system_name == 'Darwin': # Mac
         plt.rc('font', family='AppleGothic')
     elif system_name == 'Windows': # Windows
         plt.rc('font', family='Malgun Gothic')
-    elif system_name == 'Linux': # Linux (Streamlit Cloud 등)
-        # 나눔고딕 등이 설치되어 있다고 가정하거나, 없으면 기본 폰트 사용 후 경고
-        # 실제 배포 시에는 packages.txt에 fonts-nanum을 추가해야 함
-        try:
+    elif system_name == 'Linux': # Streamlit Cloud (Linux)
+        path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
+        
+        if os.path.exists(path):
+            fontprop = fm.FontProperties(fname=path, size=12)
+            plt.rc('font', family=fontprop.get_name())
+            print("✅ NanumGothic font set successfully.")
+        else:
+            print("⚠️ NanumGothic font not found. Please add 'fonts-nanum' to packages.txt")
             plt.rc('font', family='NanumGothic')
-        except:
-            pass # 폰트가 없으면 기본 폰트 사용 (깨질 수 있음)
+            
     plt.rc('axes', unicode_minus=False)
 
 set_korean_font()
@@ -123,28 +128,21 @@ def initialize_database():
 # 수정된 initialize_database 함수 내부 로직
 # --------------------------------------------------------------------------------
 
-    # 1. [수정] 누락된 파일이 있는지 먼저 검사합니다.
     missing_files = [path for path in csv_files.values() if not os.path.exists(path)]
     
-    # 2. [수정] 하나라도 없으면 에러를 띄우고 즉시 중단합니다. (거짓말쟁이 방지)
     if missing_files:
         st.error(f"❌ 필수 파일이 누락되어 DB를 생성할 수 없습니다.\n누락된 파일: {missing_files}")
-        # 파일이 없으면 기존 DB라도 쓰게 할지, 아예 멈출지 결정해야 하는데
-        # '업로드가 잘못된 것을 알아야 한다'는 선생님 의견에 따라 여기서 멈춥니다.
         return False
 
-    # 3. 모든 파일이 존재할 때만 아래 로직이 실행됩니다.
     try:
         conn = sqlite3.connect(DB_PATH)
         progress_bar = st.progress(0)
         
-        # 이제 existing_files 대신 원래 csv_files를 그대로 씁니다. (다 있는 걸 확인했으니까요)
         total = len(csv_files)
         
         for i, (table, path) in enumerate(csv_files.items()):
             df = read_csv_robust(path)
             
-            # 데이터프레임이 비어있는 경우도 체크하면 더 좋습니다 (선택사항)
             if df.empty:
                 st.warning(f"⚠️ {path} 파일은 존재하지만 데이터가 비어있습니다.")
                 
@@ -181,6 +179,7 @@ def nl_to_sql(client, question):
     4. 비율 계산: 
        - 'A 대비 B' 또는 '비율'을 구할 때는 정수 나눗셈 오류를 방지하기 위해 `CAST`를 사용하세요.
        - 예: `CAST(SUM(B) AS FLOAT) / SUM(A)`
+       - 비율 계산을 할 때 분모와 분자의 관계를 확실하게 이해하고 정확한 쿼리를 작성하세요. 
     5. 그룹화(GROUP BY):
        - 지역별 통계를 구할 때는 `base_info.시도`, `base_info.시군구`로 그룹화하세요.
        - 집계 함수(SUM, AVG)를 적절히 사용하여 도서관별 데이터를 지역별로 합치세요.
@@ -223,16 +222,12 @@ def nl_to_sql(client, question):
         content = response.choices[0].message.content
         data = json.loads(content)
         
-        # [수정된 부분] 안전장치 추가: 'sql' 키가 없으면 찾아내거나 에러 메시지로 대체
         if "sql" not in data:
             if "query" in data:
-                # AI가 실수로 'query'라는 키를 쓴 경우 처리
                 data["sql"] = data["query"]
             elif "SQL" in data:
-                 # AI가 대문자 'SQL'을 쓴 경우 처리
                 data["sql"] = data["SQL"]
             else:
-                # 어떤 키도 없으면 강제로 에러 SQL 주입 (KeyError 방지)
                 data["sql"] = "-- SQL 생성 실패: AI가 올바른 형식을 반환하지 않음"
                 if "explanation" not in data:
                     data["explanation"] = f"AI 응답 오류: {content}"
@@ -243,7 +238,6 @@ def nl_to_sql(client, question):
         return data
 
     except Exception as e:
-        # JSON 파싱 실패 등 아예 오류가 난 경우
         return {
             "sql": "-- Error", 
             "explanation": f"쿼리 생성 실패: {str(e)}"
@@ -446,12 +440,7 @@ if "last_result" not in st.session_state:
 
 # 이전 대화 출력
 # --------------------------------------------------------------------------------
-# 5. Streamlit 화면 구성 (중간 부분 수정)
-# --------------------------------------------------------------------------------
-
-# 이전 대화 및 분석 결과 출력
-# --------------------------------------------------------------------------------
-# 5. Streamlit 화면 구성 (중간 부분 - 대화 기록 출력)
+# 5. Streamlit 화면 구성
 # --------------------------------------------------------------------------------
 
 for msg in st.session_state.messages:
@@ -469,14 +458,12 @@ for msg in st.session_state.messages:
         if "result" in msg:
             res = msg["result"]
             
-            # [수정] 탭을 4개로 늘림 ("🔍 SQL" 추가)
             tab1, tab2, tab3, tab4 = st.tabs(["📋 데이터", "📈 시각화", "📝 리포트", "🔍 SQL"])
             
             with tab1:
                 st.dataframe(res['df'])
                 
             with tab2:
-                # 저장된 코드로 그래프 그리기 (exec 안전 실행)
                 if res['viz_code']:
                     try:
                         fig = plt.figure(figsize=(10, 6))
@@ -494,14 +481,13 @@ for msg in st.session_state.messages:
             with tab3:
                 st.markdown(res['report'])
 
-            # [추가] 4번째 탭에 SQL 쿼리 표시
             with tab4:
                 st.info("이 결과를 만들기 위해 AI가 생성한 SQL입니다.")
                 st.code(res['query'], language="sql")
 
 
 # --------------------------------------------------------------------------------
-# 6. 사용자 입력 처리 (수정됨: 4번째 탭 추가)
+# 6. 사용자 입력 처리
 # --------------------------------------------------------------------------------
 
 if prompt := st.chat_input("질문을 입력하세요..."):
