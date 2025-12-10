@@ -189,6 +189,7 @@ def nl_to_sql(client, question):
     7. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
     8. 존재하지 않는 테이블이나 컬럼 이름을 지어내지 말고, 위에 정의된 스키마만 사용하세요. 스키마에 정의된 테이블명과 컬럼명을 글자 하나도 빼지 말고 그대로 사용하세요.
     9. SELECT나 WHERE 절에 사용된 컬럼이 있는 테이블은 반드시 FROM이나 JOIN 절에 포함되어야 합니다.
+    10. FROM, GROUP BY, HAVING, ORDER BY, LIMIT 앞에서는 반드시 줄바꿈을 해서 가독성을 좋게 하세요. 
     
     [답변 예시]
     
