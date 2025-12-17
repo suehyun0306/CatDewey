@@ -195,19 +195,19 @@ def nl_to_sql(client, question):
     
     [답변 예시]
     
-    Q: "서울에 있는 도서관 이름 알려줘" (단일 테이블 조회)
+    Q: "서울에 있는 도서관 이름 알려줘" 
     A: {{
         "sql": "SELECT 도서관명 FROM base_info WHERE 시도 = '서울특별시';",
         "explanation": "서울특별시에 위치한 모든 도서관의 이름을 조회합니다."
     }}
 
-    Q: "서울특별시 동대문구의 총 인구수는 얼마야?" (단일 테이블 조회 - 조인 불필요)
+    Q: "서울특별시 동대문구의 총 인구수는 얼마야?"
     A: {{
         "sql": "SELECT 총인구 FROM pop WHERE 시도 LIKE '%서울%' AND 시군구 LIKE '%동대문%';",
         "explanation": "pop 테이블에서 서울특별시 동대문구의 총 인구수를 조회합니다."
     }}
     
-    Q: "어린이 인구수 대비 어린이 서비스 이용수가 적은 지역(시군구) 3곳을 알려줘" (복합 조인 필요)
+    Q: "어린이 인구수 대비 어린이 서비스 이용수가 적은 지역(시군구) 3곳을 알려줘" 
     A: {{
         "sql": "SELECT b.시도, b.시군구, (CAST(SUM(s.어린이서비스_이용수) AS FLOAT) / MAX(p.어린이인구)) AS 이용률 FROM base_info b JOIN pop p ON b.시도 = p.시도 AND b.시군구 = p.시군구 JOIN service s ON b.도서관코드 = s.도서관코드 GROUP BY b.시도, b.시군구 ORDER BY 이용률 ASC LIMIT 3;",
         "explanation": "지역별로 어린이 서비스 이용수 합계를 구한 뒤, 해당 지역의 어린이 인구수로 나누어 이용률이 가장 낮은 3곳을 추출합니다."
