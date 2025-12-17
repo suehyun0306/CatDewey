@@ -192,12 +192,13 @@ def nl_to_sql(client, question):
     8. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
     9. SELECT나 WHERE 절에 사용된 컬럼이 있는 테이블은 반드시 FROM이나 JOIN 절에 포함되어야 합니다.
     10. FROM, GROUP BY, HAVING, ORDER BY, LIMIT 앞에서는 반드시 줄바꿈을 해서 가독성을 좋게 하세요. 
+    11. 시도의 이름은 서울, 인천, 부산, 대전, 대구, 울산, 경기, 강원, 충남, 충북, 전남, 전북, 경남, 경북 으로 되어 있습니다. 
     
     [답변 예시]
     
     Q: "서울에 있는 도서관 이름 알려줘" 
     A: {{
-        "sql": "SELECT 도서관명 FROM base_info WHERE 시도 = '서울특별시';",
+        "sql": "SELECT 도서관명 FROM base_info WHERE 시도 = '서울%';",
         "explanation": "서울특별시에 위치한 모든 도서관의 이름을 조회합니다."
     }}
 
