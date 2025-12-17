@@ -173,38 +173,46 @@ def nl_to_sql(client, question):
     [규칙]
     1. 결과 형식: 반드시 JSON 포맷 {{"sql": "SELECT ...", "explanation": "..."}} 만 출력하세요.
     2. 읽기 전용: SELECT 문만 사용 가능합니다. (INSERT, UPDATE, DELETE 금지)
-    3. 테이블 조인(JOIN) 필수: 
-       - `pop` 테이블과 다른 테이블들을 조인할 때는 반드시 복합키를 사용하세요.
-       - 구문 예시: `ON pop.시도 = base_info.시도 AND pop.시군구 = base_info.시군구`
-       - `base_info`, `service`, `holding`, `fac`, `user` 테이블끼리 join할 때는 `도서관코드`를 사용하세요.
+    3. 테이블 조인(JOIN) 규칙 (중요): 
+       - **필요한 경우에만 조인을 사용하세요.** 질문에 대한 답이 하나의 테이블(예: `pop` 테이블의 인구수)에만 있다면 조인하지 마세요.
+       - 두 개 이상의 테이블 정보를 결합해야 할 때 조인을 수행하세요.
+       - `pop` 테이블과 다른 테이블들을 조인해야 한다면: 반드시 복합키를 사용하세요.
+         (구문 예시: `ON pop.시도 = base_info.시도 AND pop.시군구 = base_info.시군구`)
+       - `base_info`, `service`, `holding`, `fac`, `user` 테이블끼리 조인해야 한다면: `도서관코드`를 사용하세요.
     4. 비율 계산: 
        - 'A 대비 B' 또는 '비율'을 구할 때는 정수 나눗셈 오류를 방지하기 위해 `CAST`를 사용하세요.
        - 예: `CAST(SUM(B) AS FLOAT) / SUM(A)`
        - 비율 계산을 할 때 분모와 분자의 관계를 확실하게 이해하고 정확한 쿼리를 작성하세요. 
        - 예: 'B 대비 A의 비율'은 CAST(SUM(A) AS FLOAT) / SUM(B) 
     5. 그룹화(GROUP BY):
-       - 지역별 통계를 구할 때는 `base_info.시도`, `base_info.시군구`로 그룹화하세요.
-       - 집계 함수(SUM, AVG)를 적절히 사용하여 도서관별 데이터를 지역별로 합치세요.
+       - 지역별 통계를 구할 때는 `base_info.시도`, `base_info.시군구` (또는 `pop.시도`, `pop.시군구`)로 그룹화하세요.
+       - 집계 함수(SUM, AVG)를 적절히 사용하세요.
     6. 제일 마지막에는 세미콜론(;)을 붙이세요.
-    7. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
-    8. 존재하지 않는 테이블이나 컬럼 이름을 지어내지 말고, 위에 정의된 스키마만 사용하세요. 스키마에 정의된 테이블명과 컬럼명을 글자 하나도 빼지 말고 그대로 사용하세요.
+    7. 없는 컬럼 창조 금지: 스키마에 정의된 테이블명과 컬럼명을 정확히 사용하세요.
+    8. INSERT, UPDATE, DELETE 등 데이터 변경 구문은 절대 사용하지 마세요. (읽기 전용)
     9. SELECT나 WHERE 절에 사용된 컬럼이 있는 테이블은 반드시 FROM이나 JOIN 절에 포함되어야 합니다.
     10. FROM, GROUP BY, HAVING, ORDER BY, LIMIT 앞에서는 반드시 줄바꿈을 해서 가독성을 좋게 하세요. 
     
     [답변 예시]
     
-    Q: "서울에 있는 도서관 이름 알려줘"
+    Q: "서울에 있는 도서관 이름 알려줘" (단일 테이블 조회)
     A: {{
         "sql": "SELECT 도서관명 FROM base_info WHERE 시도 = '서울특별시';",
         "explanation": "서울특별시에 위치한 모든 도서관의 이름을 조회합니다."
     }}
 
-    Q: "어린이 인구수 대비 어린이 서비스 이용수가 적은 지역(시군구) 3곳을 알려줘"
+    Q: "서울특별시 동대문구의 총 인구수는 얼마야?" (단일 테이블 조회 - 조인 불필요)
+    A: {{
+        "sql": "SELECT 총인구 FROM pop WHERE 시도 LIKE '%서울%' AND 시군구 LIKE '%동대문%';",
+        "explanation": "pop 테이블에서 서울특별시 동대문구의 총 인구수를 조회합니다."
+    }}
+    
+    Q: "어린이 인구수 대비 어린이 서비스 이용수가 적은 지역(시군구) 3곳을 알려줘" (복합 조인 필요)
     A: {{
         "sql": "SELECT b.시도, b.시군구, (CAST(SUM(s.어린이서비스_이용수) AS FLOAT) / MAX(p.어린이인구)) AS 이용률 FROM base_info b JOIN pop p ON b.시도 = p.시도 AND b.시군구 = p.시군구 JOIN service s ON b.도서관코드 = s.도서관코드 GROUP BY b.시도, b.시군구 ORDER BY 이용률 ASC LIMIT 3;",
         "explanation": "지역별로 어린이 서비스 이용수 합계를 구한 뒤, 해당 지역의 어린이 인구수로 나누어 이용률이 가장 낮은 3곳을 추출합니다."
     }}
-    
+
     Q: "장애인 관련 예산이 가장 많은 상위 5개 도서관과 그 지역을 알려줘"
     A: {{
         "sql": "SELECT b.시도, b.도서관명, s.취약계층관련예산_장애인 FROM base_info b JOIN service s ON b.도서관코드 = s.도서관코드 ORDER BY s.취약계층관련예산_장애인 DESC LIMIT 5;",
@@ -231,9 +239,8 @@ def nl_to_sql(client, question):
             elif "SQL" in data:
                 data["sql"] = data["SQL"]
             else:
-                data["sql"] = "-- SQL 생성 실패: AI가 올바른 형식을 반환하지 않음"
-                if "explanation" not in data:
-                    data["explanation"] = f"AI 응답 오류: {content}"
+                data["sql"] = "-- SQL 생성 실패"
+                data["explanation"] = "SQL 키를 찾을 수 없습니다."
             
         if "explanation" not in data:
             data["explanation"] = "자동 생성된 쿼리입니다."
@@ -245,7 +252,7 @@ def nl_to_sql(client, question):
             "sql": "-- Error", 
             "explanation": f"쿼리 생성 실패: {str(e)}"
         }
-
+    
 def generate_viz_code(client, df, question):
     # 데이터프레임 정보 요약
     df_head = df.head().to_markdown()
